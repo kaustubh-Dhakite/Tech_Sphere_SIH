@@ -83,10 +83,13 @@ export function resolutionDays(c: Complaint): number | undefined {
 }
 
 /** Cases visible to a role. Admin = all, Officer = own bureau, Complainant = own submissions. */
-export function scopeComplaints(list: Complaint[], role: Role): Complaint[] {
+export function scopeComplaints(list: Complaint[], role: Role, userEmail?: string): Complaint[] {
   if (role === "admin") return list;
   if (role === "officer") return list.filter((c) => c.bureau === OFFICER_BUREAU);
-  return list.filter((c) => c.email === DEMO_COMPLAINANT_EMAIL);
+  return list.filter((c) => 
+    (userEmail && c.email.toLowerCase() === userEmail.toLowerCase()) || 
+    c.email === DEMO_COMPLAINANT_EMAIL
+  );
 }
 
 export interface Stats {

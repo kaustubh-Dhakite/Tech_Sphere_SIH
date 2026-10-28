@@ -10,17 +10,19 @@ import {
 import { seedComplaints, seedNotifications } from "../lib/seed";
 import { STORAGE_VERSION, nextCaseId, scopeComplaints, uid } from "../lib/utils";
 import {
+  BUREAUS,
   ROLE_PERSONAS,
   bureauById,
   type AppNotification,
   type Complaint,
   type NewComplaintInput,
+  type Priority,
   type Role,
   type Status,
   type TimelineEvent,
 } from "../lib/types";
 import { useAuth } from "./AuthContext";
-import type { UserRole } from "../lib/supabase";
+import { supabase, type UserRole } from "../lib/supabase";
 
 /** Map Supabase DB roles → legacy app Role for UI scoping */
 export function mapUserRole(dbRole: UserRole | null | undefined): Role {
@@ -94,16 +96,81 @@ export function AppProvider({ children }: { children: ReactNode }) {
   // Derive role from real auth profile; fall back to stored demo role
   const authRole = useMemo(() => mapUserRole(profile?.role), [profile]);
 
-  // When a real user is logged in we start with empty data (no seed).
-  // When there's no real profile (shouldn't happen inside ProtectedApp but just in case)
-  // we fall back to the stored demo state.
-  const [{ complaints, notifications }, setData] = useState(() => {
-    if (profile) {
-      // Real user — no demo data
-      return { complaints: [] as Complaint[], notifications: [] as AppNotification[] };
+  // Initialize with stored state or seed data so the dashboard is immediately populated
+  const [{ complaints, notifications }, setData] = useState(() => initialState());
+
+  // Fetch real cases from Supabase database
+  useEffect(() => {
+    async function syncCasesFromDb() {
+      try {
+        const { data, error } = await supabase
+          .from("cases")
+          .select("*")
+          .order("created_at", { ascending: false });
+
+        if (!error && data && data.length > 0) {
+          const statusMap: Record<string, Status> = {
+            received: "Submitted",
+            pending: "Under Review",
+            under_process: "In Progress",
+            disposed: "Resolved",
+            escalated: "Escalated",
+          };
+          const priorityMap: Record<string, Priority> = {
+            low: "Low",
+            medium: "Medium",
+            high: "High",
+            urgent: "High",
+          };
+
+          const mapped: Complaint[] = data.map((row: any) => {
+            const bId = row.bureau_id ? (BUREAUS.find((b) => b.id === row.bureau_id)?.id || "PGRC") : "PGRC";
+            const bDef = bureauById(bId);
+            return {
+              id: row.case_number || row.id,
+              subject: row.subject,
+              description: row.description,
+              complainantName: row.complainant_name,
+              email: row.complainant_email,
+              institution: row.institution_name,
+              category: row.category,
+              bureau: bDef.id,
+              priority: priorityMap[row.priority?.toLowerCase()] || "Medium",
+              status: statusMap[row.status?.toLowerCase()] || "Submitted",
+              createdAt: row.created_at,
+              updatedAt: row.updated_at || row.created_at,
+              attachments: [],
+              timeline: [
+                {
+                  stage: "Submitted",
+                  label: "Complaint registered in database",
+                  date: row.created_at,
+                  detail: "Stored in AICTE Central Database",
+                },
+              ],
+              notes: [],
+            };
+          });
+
+          setData((prev) => {
+            const byId = new Map<string, Complaint>();
+            mapped.forEach((c) => byId.set(c.id, c));
+            prev.complaints.forEach((c) => {
+              if (!byId.has(c.id)) byId.set(c.id, c);
+            });
+            const merged = Array.from(byId.values()).sort(
+              (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+            );
+            return { ...prev, complaints: merged };
+          });
+        }
+      } catch (err) {
+        console.warn("[AICTE] Database sync skipped:", err);
+      }
     }
-    return initialState();
-  });
+
+    syncCasesFromDb();
+  }, [profile]);
 
   const [role, setRoleState] = useState<Role>(() => {
     if (profile) return mapUserRole(profile.role);
@@ -118,20 +185,19 @@ export function AppProvider({ children }: { children: ReactNode }) {
     if (profile) setRoleState(mapUserRole(profile.role));
   }, [profile]);
 
+  // Persist complaints and state across refreshes
   useEffect(() => {
-    if (!profile) {
-      localStorage.setItem(KEYS.version, STORAGE_VERSION);
-      localStorage.setItem(KEYS.complaints, JSON.stringify(complaints));
-    }
-  }, [complaints, profile]);
+    localStorage.setItem(KEYS.version, STORAGE_VERSION);
+    localStorage.setItem(KEYS.complaints, JSON.stringify(complaints));
+  }, [complaints]);
 
   useEffect(() => {
-    if (!profile) localStorage.setItem(KEYS.notifications, JSON.stringify(notifications));
-  }, [notifications, profile]);
+    localStorage.setItem(KEYS.notifications, JSON.stringify(notifications));
+  }, [notifications]);
 
   useEffect(() => {
-    if (!profile) localStorage.setItem(KEYS.role, role);
-  }, [role, profile]);
+    localStorage.setItem(KEYS.role, role);
+  }, [role]);
 
   const dismissToast = useCallback((id: string) => {
     setToasts((t) => t.filter((x) => x.id !== id));
@@ -161,16 +227,14 @@ export function AppProvider({ children }: { children: ReactNode }) {
 
   const setRole = useCallback(
     (r: Role) => {
-      // Only allow switching in demo mode (no real profile)
-      if (profile) return;
       setRoleState(r);
       pushToast({
         title: `Viewing as ${ROLE_PERSONAS[r].name}`,
-        body: `${ROLE_PERSONAS[r].title} · demo role switched`,
+        body: `${ROLE_PERSONAS[r].title} · role switched`,
         variant: "info",
       });
     },
-    [pushToast, profile]
+    [pushToast]
   );
 
   const addComplaint = useCallback(
@@ -207,7 +271,45 @@ export function AppProvider({ children }: { children: ReactNode }) {
         ],
         notes: [],
       };
+
+      // 1. Immediately update UI state and persistent storage
       setData((prev) => ({ ...prev, complaints: [complaint, ...prev.complaints] }));
+
+      // 2. Persist to Supabase Database
+      (async () => {
+        try {
+          let dbBureauId: string | null = null;
+          const { data: bData } = await supabase
+            .from("bureaus")
+            .select("id")
+            .eq("code", bureau.id)
+            .maybeSingle();
+          if (bData?.id) dbBureauId = bData.id;
+
+          const pMap: Record<string, string> = { Low: "low", Medium: "medium", High: "high" };
+          const { error: dbError } = await supabase.from("cases").insert({
+            case_number: complaint.id,
+            subject: complaint.subject,
+            description: complaint.description,
+            complainant_name: complaint.complainantName,
+            complainant_email: complaint.email,
+            institution_name: complaint.institution,
+            category: complaint.category,
+            bureau_id: dbBureauId,
+            status: "received",
+            priority: pMap[complaint.priority] || "medium",
+          });
+
+          if (dbError) {
+            console.warn("[AICTE] Database sync notice:", dbError.message);
+          } else {
+            console.log("[AICTE] Complaint synced to Supabase database:", complaint.id);
+          }
+        } catch (e) {
+          console.warn("[AICTE] Database insert error:", e);
+        }
+      })();
+
       pushNotification({
         title: "Complaint registered",
         message: `${complaint.id} routed to the ${bureau.name} desk.`,
@@ -390,7 +492,11 @@ export function AppProvider({ children }: { children: ReactNode }) {
 
   // Use auth-derived role for scoping when real profile exists
   const effectiveRole = profile ? authRole : role;
-  const visibleComplaints = useMemo(() => scopeComplaints(complaints, effectiveRole), [complaints, effectiveRole]);
+  const userEmail = profile?.email;
+  const visibleComplaints = useMemo(
+    () => scopeComplaints(complaints, effectiveRole, userEmail),
+    [complaints, effectiveRole, userEmail]
+  );
   const unreadCount = useMemo(() => notifications.filter((n) => !n.read).length, [notifications]);
 
   const value: AppContextValue = {
