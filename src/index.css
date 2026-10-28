@@ -57,7 +57,9 @@ body {
 }
 
 .input {
-  @apply w-full rounded-xl border border-slate-200 bg-white px-3.5 py-2.5 text-sm text-slate-800 placeholder:text-slate-400 transition-all duration-150 outline-none;
+  @apply w-full rounded-xl border border-slate-200 bg-white py-2.5 text-sm text-slate-800 placeholder:text-slate-400 transition-all duration-150 outline-none;
+  padding-left: 0.875rem;
+  padding-right: 0.875rem;
 }
 .input:focus {
   border-color: #93c5fd;
@@ -69,6 +71,25 @@ body {
 .input-error:focus {
   border-color: #f87171;
   box-shadow: 0 0 0 4px rgb(239 68 68 / 0.1);
+}
+
+/* Ensure any inputs with left icons/emojis never overlap with text */
+.input.pl-9,
+.input.pl-10,
+.input.pl-11,
+.input.has-left-icon,
+input[class*="pl-9"],
+input[class*="pl-10"],
+input[class*="pl-11"],
+input[class*="has-left-icon"] {
+  padding-left: 2.75rem !important;
+}
+
+.input.pr-10,
+.input.pr-11,
+input[class*="pr-10"],
+input[class*="pr-11"] {
+  padding-right: 2.75rem !important;
 }
 
 /* thin elegant scrollbars */

@@ -3,7 +3,6 @@ import { twMerge } from "tailwind-merge";
 import {
   BUREAUS,
   DEMO_COMPLAINANT_EMAIL,
-  OFFICER_BUREAU,
   SLA_DAYS,
   bureauById,
   type Complaint,
@@ -82,14 +81,42 @@ export function resolutionDays(c: Complaint): number | undefined {
   return Math.max(1, Math.round((new Date(rd).getTime() - new Date(c.createdAt).getTime()) / 86400000));
 }
 
-/** Cases visible to a role. Admin = all, Officer = own bureau, Complainant = own submissions. */
+/** Cases visible to a role. Admin and Officer = all, Institute = institution cases, Student/Complainant = own submissions/queries. */
 export function scopeComplaints(list: Complaint[], role: Role, userEmail?: string): Complaint[] {
-  if (role === "admin") return list;
-  if (role === "officer") return list.filter((c) => c.bureau === OFFICER_BUREAU);
-  return list.filter((c) => 
-    (userEmail && c.email.toLowerCase() === userEmail.toLowerCase()) || 
-    c.email === DEMO_COMPLAINANT_EMAIL
-  );
+  // Admin and Officer can view ALL complaints!
+  if (role === "admin" || role === "officer") return list;
+
+  if (role === "institute") {
+    // Show complaints concerning recognized colleges & institutions
+    return list.filter((c) => {
+      const inst = (c.institution || "").toLowerCase();
+      return (
+        inst.includes("college") ||
+        inst.includes("institute") ||
+        inst.includes("university") ||
+        inst.includes("technology") ||
+        inst.includes("engineering") ||
+        inst.includes("delhi") ||
+        inst.includes("coep")
+      );
+    });
+  }
+
+  // Student / Complainant: views only their own submitted queries/complaints
+  let myIds: string[] = [];
+  try {
+    const raw = localStorage.getItem("casebridge.my_complaints");
+    if (raw) myIds = JSON.parse(raw);
+  } catch {
+    // fallback
+  }
+
+  return list.filter((c) => {
+    if (myIds.includes(c.id)) return true;
+    if (userEmail && c.email.toLowerCase() === userEmail.toLowerCase()) return true;
+    if (c.email === "student@example.in" || c.email === DEMO_COMPLAINANT_EMAIL) return true;
+    return false;
+  });
 }
 
 export interface Stats {

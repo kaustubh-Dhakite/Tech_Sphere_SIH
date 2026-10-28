@@ -9,12 +9,14 @@ import {
   ChevronRight,
   FilePlus2,
   FileText,
+  GitMerge,
   LayoutDashboard,
   LogOut,
   Menu,
   RotateCcw,
   ShieldCheck,
   ClipboardCheck,
+  GraduationCap,
   User,
   X,
   Bell,
@@ -26,26 +28,29 @@ import {
 import { useApp } from "../context/AppContext";
 import { useAuth } from "../context/AuthContext";
 import { cn, formatDate, timeAgo } from "../lib/utils";
-import { ROLE_PERSONAS, type Role } from "../lib/types";
+import { type Role } from "../lib/types";
 import { Avatar, DemoBadge, NotifIcon } from "./ui";
 import LanguageSelector from "./LanguageSelector";
 
 /* ── role display helpers ── */
 const ROLE_UI_LABELS: Record<string, string> = {
+  admin:                "System Administrator",
+  officer:              "AICTE Bureau Officer",
+  institute:            "Institute Representative",
+  student:              "Student Grievant",
+  complainant:          "Student Grievant",
+  // DB roles fallback
   system_administrator: "System Administrator",
   competent_authority:  "Competent Authority",
   rb_officer:           "Regulation Bureau",
   pgrc_officer:         "PGRC Officer",
   bureau_officer:       "Bureau Officer",
   regional_officer:     "Regional Officer",
-  auditor:              "Auditor",
-  // legacy demo roles
-  admin:       "Administrator",
-  officer:     "Bureau Officer",
-  complainant: "Complainant",
 };
 
 /* ── navigation ── */
+const ALL_ROLES: Role[] = ["admin", "officer", "institute", "student", "complainant"];
+
 const NAV_ITEMS: Array<{
   to: string;
   icon: typeof LayoutDashboard;
@@ -53,23 +58,28 @@ const NAV_ITEMS: Array<{
   labelKey: string;
   end?: boolean;
 }> = [
-  { to: "/",            icon: LayoutDashboard, roles: ["complainant","officer","admin"], labelKey: "nav.overview",           end: true },
-  { to: "/complaints",  icon: FileText,        roles: ["complainant","officer","admin"], labelKey: "nav.allComplaints" },
-  { to: "/register",    icon: FilePlus2,       roles: ["complainant","officer","admin"], labelKey: "nav.registerComplaint" },
-  { to: "/analytics",   icon: BarChart3,       roles: ["complainant","officer","admin"], labelKey: "nav.analytics" },
+  { to: "/",            icon: LayoutDashboard, roles: ALL_ROLES,                         labelKey: "nav.overview",           end: true },
+  { to: "/complaints",  icon: FileText,        roles: ALL_ROLES,                         labelKey: "nav.allComplaints" },
+  { to: "/register",    icon: FilePlus2,       roles: ALL_ROLES,                         labelKey: "nav.registerComplaint" },
+  { to: "/overlaps",    icon: GitMerge,        roles: ["officer", "admin"],              labelKey: "nav.overlaps" },
+  { to: "/institutions",icon: Building2,       roles: ["officer", "admin", "institute"], labelKey: "nav.institutions" },
+  { to: "/analytics",   icon: BarChart3,       roles: ["officer", "admin", "institute"], labelKey: "nav.analytics" },
   { to: "/bureaus",     icon: Building2,       roles: ["admin"],                         labelKey: "nav.bureauManagement" },
-  { to: "/settings",    icon: Settings2,       roles: ["complainant","officer","admin"], labelKey: "nav.settings" },
+  { to: "/settings",    icon: Settings2,       roles: ALL_ROLES,                         labelKey: "nav.settings" },
 ];
 
 const CRUMBS: Array<[RegExp, string[]]> = [
-  [/^\/$/, ["Overview"]],
-  [/^\/complaints$/, ["Complaints", "Case Register"]],
-  [/^\/complaints\//, ["Complaints", "Case Details"]],
-  [/^\/register$/, ["Complaints", "Register Complaint"]],
-  [/^\/analytics$/, ["Reports", "Analytics"]],
-  [/^\/bureaus$/, ["Administration", "Bureau Management"]],
-  [/^\/settings$/, ["Account", "Profile & Settings"]],
+  [/^\/$/,              ["Overview"]],
+  [/^\/complaints$/,    ["Complaints", "Case Register"]],
+  [/^\/complaints\//,  ["Complaints", "Case Details"]],
+  [/^\/register$/,      ["Complaints", "Register Complaint"]],
+  [/^\/analytics$/,     ["Reports", "Analytics"]],
+  [/^\/bureaus$/,       ["Administration", "Bureau Management"]],
+  [/^\/settings$/,      ["Account", "Profile & Settings"]],
   [/^\/notifications$/, ["Notifications"]],
+  [/^\/overlaps$/,      ["Intelligence", "Overlap Detection"]],
+  [/^\/institutions$/, ["Intelligence", "Institution Directory"]],
+  [/^\/institutions\//, ["Institution Directory", "360° Profile"]],
 ];
 
 function breadcrumb(pathname: string) {
@@ -77,11 +87,12 @@ function breadcrumb(pathname: string) {
   return ["Overview"];
 }
 
-/* ── legacy role switcher (keeps demo working before full auth) ── */
-const DEMO_ROLE_UI: Array<{ role: Role; icon: typeof User }> = [
-  { role: "complainant", icon: User },
-  { role: "officer",     icon: ClipboardCheck },
-  { role: "admin",       icon: ShieldCheck },
+/* ── standard role switcher: Single Admin, Officer, Institute, Student ── */
+const DEMO_ROLE_UI: Array<{ role: Role; label: string; icon: typeof User }> = [
+  { role: "admin",     label: "Admin",     icon: ShieldCheck },
+  { role: "officer",   label: "Officer",   icon: ClipboardCheck },
+  { role: "institute", label: "Institute", icon: Building2 },
+  { role: "student",   label: "Student",   icon: GraduationCap },
 ];
 
 function RoleSwitcher({ compact = false }: { compact?: boolean }) {
@@ -99,8 +110,8 @@ function RoleSwitcher({ compact = false }: { compact?: boolean }) {
       role="tablist"
       aria-label="Demo role switcher"
     >
-      {DEMO_ROLE_UI.map(({ role: r, icon: Icon }) => {
-        const label = t(`roles.${r}`, r);
+      {DEMO_ROLE_UI.map(({ role: r, label: fallbackLabel, icon: Icon }) => {
+        const label = t(`roles.${r}`, fallbackLabel);
         return (
           <button
             key={r}
@@ -392,15 +403,6 @@ export default function AppLayout({ children }: { children: ReactNode }) {
     <div className="min-h-screen bg-cream">
       {/* ── Official Government of India Top Banner ── */}
       <div className="fixed top-0 left-0 right-0 z-[60] flex flex-col bg-[#0b1c36] shadow-sm border-b border-[#061224]">
-        {/* Authentic National Flag Tri-Colour Stripe */}
-        <div className="flex h-[4px] w-full shrink-0 shadow-sm" aria-hidden>
-          <span className="flex-1 bg-[#FF9933]" title="Saffron" />
-          <span className="flex-1 bg-white relative flex items-center justify-center border-x border-slate-300/40" title="White">
-            <span className="h-full w-2.5 bg-[#000080]/30 rounded-full" />
-          </span>
-          <span className="flex-1 bg-[#138808]" title="India Green" />
-        </div>
-
         {/* Bilingual Government of India Bar */}
         <div className="flex h-[38px] w-full items-center justify-between px-3 sm:px-6 lg:px-8">
           {/* Left: National Flag + Official Dual-Language Text */}

@@ -12,6 +12,9 @@ import Bureaus from "./pages/Bureaus";
 import Notifications from "./pages/Notifications";
 import Settings from "./pages/Settings";
 import Login from "./pages/Login";
+import Overlaps from "./pages/Overlaps";
+import Institutions from "./pages/Institutions";
+import InstitutionProfile from "./pages/InstitutionProfile";
 
 /* ── animated page transitions ── */
 function RoutedPages() {
@@ -34,6 +37,9 @@ function RoutedPages() {
           <Route path="/bureaus" element={<Bureaus />} />
           <Route path="/notifications" element={<Notifications />} />
           <Route path="/settings" element={<Settings />} />
+          <Route path="/overlaps" element={<Overlaps />} />
+          <Route path="/institutions" element={<Institutions />} />
+          <Route path="/institutions/:name" element={<InstitutionProfile />} />
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
       </motion.div>

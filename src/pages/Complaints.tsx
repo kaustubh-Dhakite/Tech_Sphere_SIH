@@ -9,6 +9,7 @@ import {
   Filter,
   Search,
   SearchX,
+  Trash2,
 } from "lucide-react";
 import { useApp } from "../context/AppContext";
 import { cn, exportComplaintsCSV, formatDate } from "../lib/utils";
@@ -17,14 +18,16 @@ import { BureauIcon, EmptyState, PriorityPill, StatusPill, riseVariants, stagger
 
 const PRIORITY_WEIGHT: Record<string, number> = { High: 3, Medium: 2, Low: 1 };
 
-const SCOPE_LABEL = {
-  complainant: { title: "My Complaints", sub: "Complaints submitted under your account" },
-  officer:     { title: "Assigned Cases", sub: "Queue for your assigned bureau or desk" },
-  admin:       { title: "All Complaints", sub: "Complete case register across all bureaus and cells" },
-} as const;
+const SCOPE_LABEL: Record<string, { title: string; sub: string }> = {
+  admin:       { title: "All Complaints", sub: "Complete central register across all AICTE bureaus and institutions" },
+  officer:     { title: "All Complaints & Grievance Register", sub: "Monitoring and resolution queue across all bureaus" },
+  institute:   { title: "Institution Grievances", sub: "Complaints lodged concerning your institution" },
+  student:     { title: "My Grievances & Queries", sub: "Track and manage your submitted complaints" },
+  complainant: { title: "My Grievances & Queries", sub: "Track and manage your submitted complaints" },
+};
 
 export default function Complaints() {
-  const { role, visibleComplaints, pushToast } = useApp();
+  const { role, visibleComplaints, deleteComplaint, pushToast } = useApp();
   const navigate = useNavigate();
   const [params, setParams] = useSearchParams();
 
@@ -110,7 +113,7 @@ export default function Complaints() {
             value={query}
             onChange={(e) => setQuery(e.target.value)}
             placeholder="Search by case ID, subject, institution or complainant…"
-            className="input pl-10"
+            className="input has-left-icon pl-11"
             aria-label="Search complaints"
           />
         </div>
@@ -236,8 +239,27 @@ export default function Complaints() {
                         <StatusPill status={c.status} />
                       </td>
                       <td className="px-3 py-3.5 text-xs whitespace-nowrap text-slate-500">{formatDate(c.createdAt)}</td>
-                      <td className="px-3 py-3.5">
-                        <ChevronRight className="h-4 w-4 text-slate-300" />
+                      <td className="px-3 py-3.5 text-right">
+                        <div className="flex items-center justify-end gap-1" onClick={(e) => e.stopPropagation()}>
+                          {(role === "admin" || role === "student" || role === "complainant") && (
+                            <button
+                              onClick={() => {
+                                const isStudent = role === "student" || role === "complainant";
+                                const msg = isStudent
+                                  ? `Delete/withdraw query ${c.id}? This cannot be undone.`
+                                  : `Permanently delete complaint ${c.id}?`;
+                                if (window.confirm(msg)) {
+                                  deleteComplaint(c.id);
+                                }
+                              }}
+                              title="Delete complaint / query"
+                              className="cursor-pointer rounded-lg p-1.5 text-slate-400 transition-colors hover:bg-red-50 hover:text-red-600"
+                            >
+                              <Trash2 className="h-4 w-4" />
+                            </button>
+                          )}
+                          <ChevronRight className="h-4 w-4 text-slate-300" />
+                        </div>
                       </td>
                     </tr>
                   ))}
@@ -249,16 +271,38 @@ export default function Complaints() {
           {/* mobile cards */}
           <motion.div variants={staggerParent} className="space-y-3 md:hidden">
             {filtered.map((c) => (
-              <Link
+              <div
                 key={c.id}
-                to={`/complaints/${c.id}`}
-                className="card card-hover block p-4"
+                className="card card-hover block p-4 relative"
               >
                 <div className="flex items-start justify-between gap-2">
-                  <p className="text-[13.5px] leading-snug font-semibold text-slate-800">{c.subject}</p>
-                  <ChevronRight className="mt-0.5 h-4 w-4 shrink-0 text-slate-300" />
+                  <Link to={`/complaints/${c.id}`} className="min-w-0 flex-1">
+                    <p className="text-[13.5px] leading-snug font-semibold text-slate-800 hover:text-brand">{c.subject}</p>
+                    <p className="mt-1 text-[11px] font-semibold tracking-wide text-slate-400 tnum">{c.id}</p>
+                  </Link>
+                  <div className="flex items-center gap-1 shrink-0">
+                    {(role === "admin" || role === "student" || role === "complainant") && (
+                      <button
+                        onClick={() => {
+                          const isStudent = role === "student" || role === "complainant";
+                          const msg = isStudent
+                            ? `Delete/withdraw query ${c.id}? This cannot be undone.`
+                            : `Permanently delete complaint ${c.id}?`;
+                          if (window.confirm(msg)) {
+                            deleteComplaint(c.id);
+                          }
+                        }}
+                        title="Delete complaint / query"
+                        className="cursor-pointer rounded-lg p-1.5 text-slate-400 transition-colors hover:bg-red-50 hover:text-red-600"
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </button>
+                    )}
+                    <Link to={`/complaints/${c.id}`}>
+                      <ChevronRight className="mt-0.5 h-4 w-4 text-slate-300" />
+                    </Link>
+                  </div>
                 </div>
-                <p className="mt-1 text-[11px] font-semibold tracking-wide text-slate-400 tnum">{c.id}</p>
                 <div className="mt-2.5 flex flex-wrap items-center gap-1.5">
                   <StatusPill status={c.status} />
                   <PriorityPill priority={c.priority} />
@@ -271,7 +315,7 @@ export default function Complaints() {
                     <CalendarDays className="h-3 w-3" /> {formatDate(c.createdAt)}
                   </span>
                 </div>
-              </Link>
+              </div>
             ))}
           </motion.div>
         </>

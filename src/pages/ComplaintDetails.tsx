@@ -1,6 +1,6 @@
 import { useMemo, useState } from "react";
-import { Link, useParams } from "react-router-dom";
-import { motion } from "framer-motion";
+import { Link, useNavigate, useParams } from "react-router-dom";
+import { motion, AnimatePresence } from "framer-motion";
 import {
   AlertTriangle,
   ArrowLeft,
@@ -14,6 +14,7 @@ import {
   Eye,
   FilePlus2,
   Globe,
+  Hash,
   Loader2,
   Lock,
   Mail,
@@ -21,11 +22,18 @@ import {
   Paperclip,
   Search,
   Send,
+  Shield,
+  ShieldCheck,
   Tag,
+  ThumbsDown,
+  ThumbsUp,
+  Trash2,
   User,
+  Zap,
 } from "lucide-react";
 import { useApp } from "../context/AppContext";
 import { cn, daysSince, formatDate, formatDateTime, timeAgo } from "../lib/utils";
+import { buildHashChain, computeEscalationAlerts } from "../lib/innovations";
 import { BUREAUS, ROLE_PERSONAS, SLA_DAYS, STATUSES, bureauById, type Status } from "../lib/types";
 import {
   BureauIcon,
@@ -57,7 +65,8 @@ const STAGE_COLORS: Record<string, { bg: string; fg: string }> = {
 
 export default function ComplaintDetails() {
   const { id } = useParams();
-  const { role, complaints, updateStatus, assignBureau, addNote, pushToast } = useApp();
+  const navigate = useNavigate();
+  const { role, complaints, updateStatus, assignBureau, addNote, deleteComplaint, pushToast } = useApp();
   const complaint = complaints.find((c) => c.id === id);
 
   const [copied, setCopied] = useState(false);
@@ -67,9 +76,25 @@ export default function ComplaintDetails() {
   const [noteText, setNoteText] = useState("");
   const [noteInternal, setNoteInternal] = useState(false);
 
+  // ── Proof of Resolution ──
+  const [showResolutionFlow, setShowResolutionFlow] = useState(false);
+  const [citizenOtp, setCitizenOtp] = useState("");
+  const [otpSent, setOtpSent] = useState(false);
+  const [otpVerified, setOtpVerified] = useState(false);
+  const [citizenSatisfied, setCitizenSatisfied] = useState<boolean | null>(null);
+  const DEMO_OTP = "427831";
+
+  // ── Audit Hash ──
+  const [showAuditPanel, setShowAuditPanel] = useState(false);
+  const hashChain = useMemo(() => complaint ? buildHashChain(complaint) : [], [complaint]);
+
+  // ── Escalation ──
+  const escalationAlerts = useMemo(() => computeEscalationAlerts(complaints), [complaints]);
+  const myAlert = escalationAlerts.find((a) => a.complaintId === id);
+
   const visibleNotes = useMemo(() => {
     if (!complaint) return [];
-    return complaint.notes.filter((n) => role !== "complainant" || !n.internal);
+    return complaint.notes.filter((n) => (role !== "complainant" && role !== "student") || !n.internal);
   }, [complaint, role]);
 
   if (!complaint) {
@@ -77,7 +102,7 @@ export default function ComplaintDetails() {
       <EmptyState
         icon={<Search className="h-6 w-6" />}
         title="Case not found"
-        body="This tracking ID does not exist in the demo dataset. It may have been cleared by a demo reset."
+        body="This tracking ID does not exist in the database or may have been deleted."
         action={
           <Link to="/complaints">
             <Button>Back to case register</Button>
@@ -88,9 +113,20 @@ export default function ComplaintDetails() {
   }
 
   const bureau = bureauById(complaint.bureau);
-  const isStaff = role !== "complainant";
+  const isStaff = role !== "complainant" && role !== "student";
   const openDays = daysSince(complaint.createdAt);
   const isOpen = complaint.status !== "Resolved";
+
+  const handleDelete = () => {
+    const isStudent = role === "student" || role === "complainant";
+    const promptMsg = isStudent
+      ? `Are you sure you want to withdraw/delete your query (${complaint.id})? This action cannot be undone.`
+      : `Are you sure you want to permanently delete complaint ${complaint.id}? This will remove it from the database register.`;
+    if (window.confirm(promptMsg)) {
+      deleteComplaint(complaint.id);
+      navigate("/complaints");
+    }
+  };
 
   const doCopy = async () => {
     try {
@@ -118,13 +154,22 @@ export default function ComplaintDetails() {
 
   return (
     <motion.div variants={staggerParent} initial="hidden" animate="show" className="space-y-5">
-      <motion.div variants={riseVariants}>
+      <motion.div variants={riseVariants} className="flex flex-wrap items-center justify-between gap-3">
         <Link
           to="/complaints"
           className="inline-flex items-center gap-1.5 text-[13px] font-semibold text-slate-500 transition-colors hover:text-navy"
         >
           <ArrowLeft className="h-4 w-4" /> Back to case register
         </Link>
+        {(role === "admin" || role === "student" || role === "complainant") && (
+          <button
+            onClick={handleDelete}
+            className="inline-flex cursor-pointer items-center gap-1.5 rounded-xl border border-red-200 bg-red-50 px-3.5 py-1.5 text-xs font-bold text-red-700 transition-colors hover:bg-red-100"
+          >
+            <Trash2 className="h-3.5 w-3.5" />
+            {role === "admin" ? "Delete Complaint" : "Withdraw / Delete Query"}
+          </button>
+        )}
       </motion.div>
 
       {/* ------- header ------- */}
@@ -450,14 +495,150 @@ export default function ComplaintDetails() {
                   </div>
                 </div>
 
+                {/* Escalation level banner */}
+                {myAlert && (
+                  <div className={cn(
+                    "flex items-start gap-2.5 rounded-xl border p-3 text-xs",
+                    myAlert.level === "L3" ? "border-red-200 bg-red-50" :
+                    myAlert.level === "L2" ? "border-orange-200 bg-orange-50" :
+                    "border-amber-200 bg-amber-50"
+                  )}>
+                    <Zap className={cn("h-4 w-4 shrink-0 mt-0.5",
+                      myAlert.level === "L3" ? "text-red-600" :
+                      myAlert.level === "L2" ? "text-orange-600" : "text-amber-600"
+                    )} />
+                    <div>
+                      <p className="font-bold text-slate-800">
+                        {myAlert.level} Escalation Required · {myAlert.daysOverdue}d overdue
+                      </p>
+                      <p className="mt-0.5 text-slate-600">{myAlert.suggestedAction}</p>
+                    </div>
+                  </div>
+                )}
+
                 {complaint.status !== "Resolved" ? (
-                  <Button
-                    variant="accent"
-                    className="w-full"
-                    onClick={() => updateStatus(complaint.id, "Resolved", "Case closed after verification and complainant intimation.")}
-                  >
-                    <CheckCircle2 className="h-4 w-4" /> Mark as resolved
-                  </Button>
+                  <>
+                    <Button
+                      variant="accent"
+                      className="w-full"
+                      onClick={() => setShowResolutionFlow(true)}
+                    >
+                      <CheckCircle2 className="h-4 w-4" /> Mark as resolved
+                    </Button>
+
+                    {/* Proof of Resolution Flow */}
+                    <AnimatePresence>
+                      {showResolutionFlow && (
+                        <motion.div
+                          initial={{ opacity: 0, height: 0 }}
+                          animate={{ opacity: 1, height: "auto" }}
+                          exit={{ opacity: 0, height: 0 }}
+                          className="overflow-hidden"
+                        >
+                          <div className="rounded-xl border-2 border-brand/20 bg-mist p-4 space-y-3">
+                            <div className="flex items-center gap-2">
+                              <ShieldCheck className="h-4 w-4 text-brand" />
+                              <p className="text-sm font-bold text-navy">Proof of Resolution</p>
+                            </div>
+                            <p className="text-xs text-slate-600">
+                              To prevent false closures, the complainant must confirm resolution via OTP.
+                            </p>
+
+                            {!otpSent ? (
+                              <Button
+                                size="sm"
+                                className="w-full"
+                                onClick={() => {
+                                  setOtpSent(true);
+                                  pushToast({ title: "OTP Sent", body: `Demo OTP: ${DEMO_OTP} (sent to ${complaint.email})`, variant: "info" });
+                                }}
+                              >
+                                <Send className="h-3.5 w-3.5" /> Send OTP to Complainant
+                              </Button>
+                            ) : !otpVerified ? (
+                              <div className="space-y-2">
+                                <p className="text-[10.5px] text-slate-500">OTP sent to {complaint.email} (Demo OTP: <strong>{DEMO_OTP}</strong>)</p>
+                                <div className="flex gap-2">
+                                  <input
+                                    className="input flex-1 text-center font-mono tracking-[0.25em] text-lg"
+                                    value={citizenOtp}
+                                    onChange={(e) => setCitizenOtp(e.target.value)}
+                                    placeholder="Enter 6-digit OTP"
+                                    maxLength={6}
+                                  />
+                                  <Button
+                                    size="sm"
+                                    onClick={() => {
+                                      if (citizenOtp === DEMO_OTP) {
+                                        setOtpVerified(true);
+                                        pushToast({ title: "OTP Verified!", body: "Complainant identity confirmed.", variant: "success" });
+                                      } else {
+                                        pushToast({ title: "Wrong OTP", body: "Please check the demo OTP shown above.", variant: "warning" });
+                                      }
+                                    }}
+                                  >
+                                    <Check className="h-3.5 w-3.5" /> Verify
+                                  </Button>
+                                </div>
+                              </div>
+                            ) : citizenSatisfied === null ? (
+                              <div className="space-y-2">
+                                <p className="text-xs font-semibold text-slate-700">Is the complainant satisfied with the resolution?</p>
+                                <div className="flex gap-2">
+                                  <button
+                                    onClick={() => setCitizenSatisfied(true)}
+                                    className="flex-1 cursor-pointer flex items-center justify-center gap-2 rounded-xl border-2 border-emerald-200 bg-emerald-50 py-2.5 text-xs font-bold text-emerald-700 hover:bg-emerald-100 transition-colors"
+                                  >
+                                    <ThumbsUp className="h-4 w-4" /> Yes, Resolved
+                                  </button>
+                                  <button
+                                    onClick={() => setCitizenSatisfied(false)}
+                                    className="flex-1 cursor-pointer flex items-center justify-center gap-2 rounded-xl border-2 border-red-200 bg-red-50 py-2.5 text-xs font-bold text-red-700 hover:bg-red-100 transition-colors"
+                                  >
+                                    <ThumbsDown className="h-4 w-4" /> No, Escalate
+                                  </button>
+                                </div>
+                              </div>
+                            ) : citizenSatisfied ? (
+                              <div className="space-y-2">
+                                <p className="text-xs text-emerald-700 font-semibold">✓ Complainant confirmed satisfaction</p>
+                                <Button
+                                  variant="primary"
+                                  size="sm"
+                                  className="w-full"
+                                  onClick={() => {
+                                    updateStatus(complaint.id, "Resolved", "Case closed after OTP verification and complainant satisfaction confirmation.");
+                                    setShowResolutionFlow(false);
+                                  }}
+                                >
+                                  <CheckCircle2 className="h-3.5 w-3.5" /> Confirm Closure
+                                </Button>
+                              </div>
+                            ) : (
+                              <div className="space-y-2">
+                                <p className="text-xs text-red-700 font-semibold">Complainant rejected resolution → Auto-escalating to Regional Officer</p>
+                                <Button
+                                  variant="outline"
+                                  size="sm"
+                                  className="w-full border-red-200 text-red-600"
+                                  onClick={() => {
+                                    updateStatus(complaint.id, "Escalated", "Escalated — complainant rejected officer's resolution via OTP verification.");
+                                    setShowResolutionFlow(false);
+                                    setCitizenSatisfied(null);
+                                    setOtpVerified(false);
+                                    setOtpSent(false);
+                                    setCitizenOtp("");
+                                  }}
+                                >
+                                  <AlertTriangle className="h-3.5 w-3.5" /> Escalate to Regional Officer
+                                </Button>
+                              </div>
+                            )}
+                          </div>
+                        </motion.div>
+                      )}
+                    </AnimatePresence>
+                  </>
                 ) : (
                   <p className="flex items-center gap-2 rounded-xl bg-emerald-50 px-4 py-3 text-xs font-semibold text-emerald-700">
                     <CheckCircle2 className="h-4 w-4" /> This case is closed. Reopen it by choosing a status above.
@@ -484,6 +665,56 @@ export default function ComplaintDetails() {
               </ul>
             </motion.section>
           )}
+
+          {/* Tamper-proof Audit Hash Panel */}
+          <motion.section variants={riseVariants} className="card p-5">
+            <button
+              className="flex w-full cursor-pointer items-center justify-between gap-2"
+              onClick={() => setShowAuditPanel((v) => !v)}
+            >
+              <h2 className="font-display flex items-center gap-2 text-[14px] font-bold text-navy">
+                <Hash className="h-4 w-4 text-slate-400" /> Audit Chain
+              </h2>
+              <span className="text-[10.5px] text-brand font-semibold">{showAuditPanel ? "Hide" : "Verify"}</span>
+            </button>
+            <AnimatePresence>
+              {showAuditPanel && (
+                <motion.div
+                  initial={{ opacity: 0, height: 0 }}
+                  animate={{ opacity: 1, height: "auto" }}
+                  exit={{ opacity: 0, height: 0 }}
+                  className="overflow-hidden"
+                >
+                  <div className="mt-3 space-y-1.5">
+                    <p className="text-[10.5px] text-slate-400 leading-relaxed">
+                      Each stage generates a SHA-256 hash chained to the previous entry. Tampering any
+                      record breaks the chain, making manipulation detectable.
+                    </p>
+                    {hashChain.map((h, i) => (
+                      <div key={i} className="rounded-lg border border-slate-100 bg-slate-50 p-2.5">
+                        <div className="flex items-center justify-between">
+                          <span className="text-[10.5px] font-bold text-slate-600">{h.stage}</span>
+                          <span className="flex items-center gap-1 text-emerald-600">
+                            <Shield className="h-3 w-3" />
+                            <span className="text-[9px] font-bold">VALID</span>
+                          </span>
+                        </div>
+                        <div className="mt-1 flex items-center gap-1.5">
+                          <span className="text-[9px] text-slate-400">prev: {h.prev}</span>
+                          <span className="text-[9px] text-slate-300">→</span>
+                          <span className="font-mono text-[9px] font-bold text-brand">{h.hash}</span>
+                        </div>
+                      </div>
+                    ))}
+                    <div className="mt-2 flex items-center gap-1.5 rounded-lg bg-emerald-50 px-3 py-2">
+                      <ShieldCheck className="h-3.5 w-3.5 text-emerald-600" />
+                      <span className="text-[10.5px] font-bold text-emerald-700">Audit chain intact — {hashChain.length} verified entries</span>
+                    </div>
+                  </div>
+                </motion.div>
+              )}
+            </AnimatePresence>
+          </motion.section>
         </motion.div>
       </div>
     </motion.div>

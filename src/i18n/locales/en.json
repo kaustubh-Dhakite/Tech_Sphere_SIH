@@ -26,9 +26,11 @@
     "logout": "Logout"
   },
   "roles": {
-    "complainant": "Complainant",
-    "officer": "Bureau Officer",
-    "admin": "Administrator",
+    "student": "Student",
+    "institute": "Institute",
+    "complainant": "Student",
+    "officer": "Officer",
+    "admin": "Admin",
     "systemAdministrator": "System Administrator",
     "competentAuthority": "Competent Authority",
     "rbOfficer": "Regulation Bureau Officer",

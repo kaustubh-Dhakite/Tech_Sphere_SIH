@@ -24,12 +24,10 @@ import {
 import { useAuth } from "./AuthContext";
 import { supabase, type UserRole } from "../lib/supabase";
 
-/** Map Supabase DB roles → legacy app Role for UI scoping */
+/** Map Supabase DB roles → app Role for UI scoping */
 export function mapUserRole(dbRole: UserRole | null | undefined): Role {
-  if (!dbRole) return "complainant";
+  if (!dbRole) return "student";
   if (dbRole === "system_administrator" || dbRole === "competent_authority") return "admin";
-  if (dbRole === "auditor") return "admin";
-  // rb_officer, pgrc_officer, bureau_officer, regional_officer → officer
   return "officer";
 }
 
@@ -58,6 +56,7 @@ interface AppContextValue {
   pushToast: (t: Omit<ToastMsg, "id">) => void;
   dismissToast: (id: string) => void;
   addComplaint: (input: NewComplaintInput) => Complaint;
+  deleteComplaint: (id: string) => void;
   updateStatus: (id: string, status: Status, note?: string) => void;
   assignBureau: (id: string, bureauId: string) => void;
   addNote: (id: string, text: string, internal: boolean) => void;
@@ -275,6 +274,18 @@ export function AppProvider({ children }: { children: ReactNode }) {
       // 1. Immediately update UI state and persistent storage
       setData((prev) => ({ ...prev, complaints: [complaint, ...prev.complaints] }));
 
+      // Save locally to my_complaints so student/complainant view always retains it
+      try {
+        const raw = localStorage.getItem("casebridge.my_complaints");
+        const list: string[] = raw ? JSON.parse(raw) : [];
+        if (!list.includes(complaint.id)) {
+          list.unshift(complaint.id);
+          localStorage.setItem("casebridge.my_complaints", JSON.stringify(list));
+        }
+      } catch (err) {
+        console.warn("Could not save to my_complaints:", err);
+      }
+
       // 2. Persist to Supabase Database
       (async () => {
         try {
@@ -298,6 +309,9 @@ export function AppProvider({ children }: { children: ReactNode }) {
             bureau_id: dbBureauId,
             status: "received",
             priority: pMap[complaint.priority] || "medium",
+            receipt_date: now,
+            last_action_date: now,
+            is_demo: false,
           });
 
           if (dbError) {
@@ -319,6 +333,51 @@ export function AppProvider({ children }: { children: ReactNode }) {
       return complaint;
     },
     [complaints, pushNotification]
+  );
+
+  const deleteComplaint = useCallback(
+    (id: string) => {
+      setData((prev) => ({
+        ...prev,
+        complaints: prev.complaints.filter((c) => c.id !== id),
+        notifications: prev.notifications.filter((n) => n.complaintId !== id),
+      }));
+
+      // Remove from local my_complaints
+      try {
+        const raw = localStorage.getItem("casebridge.my_complaints");
+        if (raw) {
+          const list: string[] = JSON.parse(raw);
+          localStorage.setItem(
+            "casebridge.my_complaints",
+            JSON.stringify(list.filter((x) => x !== id))
+          );
+        }
+      } catch (err) {
+        console.warn("Could not update my_complaints:", err);
+      }
+
+      // Delete from Supabase if connected
+      (async () => {
+        try {
+          const { error } = await supabase.from("cases").delete().eq("case_number", id);
+          if (error) {
+            console.warn("[AICTE] Database delete notice:", error.message);
+          } else {
+            console.log("[AICTE] Case removed from database:", id);
+          }
+        } catch (e) {
+          console.warn("[AICTE] Database delete error:", e);
+        }
+      })();
+
+      pushToast({
+        title: "Complaint Deleted",
+        body: `Complaint ${id} has been permanently deleted.`,
+        variant: "warning",
+      });
+    },
+    [pushToast]
   );
 
   const updateStatus = useCallback(
@@ -510,6 +569,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
     pushToast,
     dismissToast,
     addComplaint,
+    deleteComplaint,
     updateStatus,
     assignBureau,
     addNote,

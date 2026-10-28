@@ -3,7 +3,7 @@ import { Navigate } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   Eye, EyeOff, Loader2, Lock, Mail, ShieldCheck,
-  AlertTriangle, User, Chrome, CheckCircle2, ArrowRight,
+  AlertTriangle, User, CheckCircle2, ArrowRight,
 } from "lucide-react";
 import { useAuth } from "../context/AuthContext";
 import { cn } from "../lib/utils";
@@ -12,14 +12,6 @@ import { cn } from "../lib/utils";
 function GoITopBar() {
   return (
     <div className="fixed top-0 left-0 right-0 z-[100] flex flex-col bg-[#0b1c36] shadow-md border-b border-[#061224]">
-      {/* authentic tricolor */}
-      <div className="flex h-[4px] w-full shrink-0 shadow-sm" aria-hidden>
-        <span className="flex-1 bg-[#FF9933]" title="Saffron" />
-        <span className="flex-1 bg-white relative flex items-center justify-center border-x border-slate-300/40" title="White">
-          <span className="h-full w-2.5 bg-[#000080]/30 rounded-full" />
-        </span>
-        <span className="flex-1 bg-[#138808]" title="India Green" />
-      </div>
       {/* official bar */}
       <div className="flex h-[38px] items-center justify-between px-3 sm:px-6 lg:px-8">
         <div className="flex items-center gap-2.5 min-w-0">
@@ -282,17 +274,17 @@ export default function Login() {
                 <div>
                   <label className="mb-1.5 block text-[13px] font-semibold text-slate-700">Email address <span className="text-[#FF9933]">*</span></label>
                   <div className="relative">
-                    <Mail className="absolute top-1/2 left-3.5 h-4 w-4 -translate-y-1/2 text-slate-400" />
+                    <Mail className="absolute top-1/2 left-3.5 h-4 w-4 -translate-y-1/2 text-slate-400 pointer-events-none" />
                     <input type="email" autoComplete="email" value={email} onChange={(e) => { setEmail(e.target.value); reset(); }}
-                      placeholder="you@aicte.in" required className="input pl-10" />
+                      placeholder="you@aicte.in" required className="input has-left-icon pl-11" />
                   </div>
                 </div>
                 <div>
                   <label className="mb-1.5 block text-[13px] font-semibold text-slate-700">Password <span className="text-[#FF9933]">*</span></label>
                   <div className="relative">
-                    <Lock className="absolute top-1/2 left-3.5 h-4 w-4 -translate-y-1/2 text-slate-400" />
+                    <Lock className="absolute top-1/2 left-3.5 h-4 w-4 -translate-y-1/2 text-slate-400 pointer-events-none" />
                     <input type={showPw ? "text" : "password"} autoComplete="current-password" value={password}
-                      onChange={(e) => { setPassword(e.target.value); reset(); }} placeholder="••••••••" required className="input pl-10 pr-10" />
+                      onChange={(e) => { setPassword(e.target.value); reset(); }} placeholder="••••••••" required className="input has-left-icon pl-11 pr-10" />
                     <button type="button" onClick={() => setShowPw((v) => !v)}
                       className="absolute top-1/2 right-3 -translate-y-1/2 cursor-pointer text-slate-400 hover:text-slate-600">
                       {showPw ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
@@ -329,25 +321,25 @@ export default function Login() {
                 <div>
                   <label className="mb-1.5 block text-[13px] font-semibold text-slate-700">Full name <span className="text-[#FF9933]">*</span></label>
                   <div className="relative">
-                    <User className="absolute top-1/2 left-3.5 h-4 w-4 -translate-y-1/2 text-slate-400" />
+                    <User className="absolute top-1/2 left-3.5 h-4 w-4 -translate-y-1/2 text-slate-400 pointer-events-none" />
                     <input type="text" autoComplete="name" value={fullName} onChange={(e) => { setFullName(e.target.value); reset(); }}
-                      placeholder="Dr. Priya Sharma" required className="input pl-10" />
+                      placeholder="Dr. Priya Sharma" required className="input has-left-icon pl-11" />
                   </div>
                 </div>
                 <div>
                   <label className="mb-1.5 block text-[13px] font-semibold text-slate-700">Email address <span className="text-[#FF9933]">*</span></label>
                   <div className="relative">
-                    <Mail className="absolute top-1/2 left-3.5 h-4 w-4 -translate-y-1/2 text-slate-400" />
+                    <Mail className="absolute top-1/2 left-3.5 h-4 w-4 -translate-y-1/2 text-slate-400 pointer-events-none" />
                     <input type="email" autoComplete="email" value={email} onChange={(e) => { setEmail(e.target.value); reset(); }}
-                      placeholder="you@aicte.in" required className="input pl-10" />
+                      placeholder="you@aicte.in" required className="input has-left-icon pl-11" />
                   </div>
                 </div>
                 <div>
                   <label className="mb-1.5 block text-[13px] font-semibold text-slate-700">Password <span className="text-[#FF9933]">*</span></label>
                   <div className="relative">
-                    <Lock className="absolute top-1/2 left-3.5 h-4 w-4 -translate-y-1/2 text-slate-400" />
+                    <Lock className="absolute top-1/2 left-3.5 h-4 w-4 -translate-y-1/2 text-slate-400 pointer-events-none" />
                     <input type={showPw ? "text" : "password"} autoComplete="new-password" value={password}
-                      onChange={(e) => { setPassword(e.target.value); reset(); }} placeholder="Min. 8 characters" required className="input pl-10 pr-10" />
+                      onChange={(e) => { setPassword(e.target.value); reset(); }} placeholder="Min. 8 characters" required className="input has-left-icon pl-11 pr-10" />
                     <button type="button" onClick={() => setShowPw((v) => !v)}
                       className="absolute top-1/2 right-3 -translate-y-1/2 cursor-pointer text-slate-400 hover:text-slate-600">
                       {showPw ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
@@ -357,9 +349,9 @@ export default function Login() {
                 <div>
                   <label className="mb-1.5 block text-[13px] font-semibold text-slate-700">Confirm password <span className="text-[#FF9933]">*</span></label>
                   <div className="relative">
-                    <Lock className="absolute top-1/2 left-3.5 h-4 w-4 -translate-y-1/2 text-slate-400" />
+                    <Lock className="absolute top-1/2 left-3.5 h-4 w-4 -translate-y-1/2 text-slate-400 pointer-events-none" />
                     <input type={showPw ? "text" : "password"} autoComplete="new-password" value={confirmPw}
-                      onChange={(e) => { setConfirmPw(e.target.value); reset(); }} placeholder="Re-enter password" required className="input pl-10" />
+                      onChange={(e) => { setConfirmPw(e.target.value); reset(); }} placeholder="Re-enter password" required className="input has-left-icon pl-11" />
                   </div>
                 </div>
 

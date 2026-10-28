@@ -1,4 +1,4 @@
-﻿import { useState } from "react";
+import { useState } from "react";
 import { motion } from "framer-motion";
 import { CheckCircle2, Loader2, Lock, Mail, Save, Settings2, ShieldCheck, User, AlertTriangle } from "lucide-react";
 import { useAuth } from "../context/AuthContext";
@@ -51,11 +51,7 @@ export default function Settings() {
       {/* profile card */}
       <motion.div variants={riseVariants} className="card overflow-hidden">
         {/* top accent */}
-        <div className="flex h-1.5 w-full">
-          <span className="flex-1" style={{ background: "#FF9933" }} />
-          <span className="flex-1" style={{ background: "#FFFFFF", borderTop: "1px solid #e2e8f0", borderBottom: "1px solid #e2e8f0" }} />
-          <span className="flex-1" style={{ background: "#138808" }} />
-        </div>
+        <div className="h-1.5 w-full bg-brand" />
 
         <div className="p-6">
           <div className="flex items-center gap-4 mb-6">
@@ -85,7 +81,7 @@ export default function Settings() {
                   onChange={(e) => { setName(e.target.value); setErr(null); setSuccess(false); }}
                   placeholder="Enter your full name"
                   required
-                  className="input pl-10"
+                  className="input has-left-icon pl-11"
                 />
               </div>
             </div>
@@ -100,7 +96,7 @@ export default function Settings() {
                   value={profile?.email ?? user?.email ?? ""}
                   readOnly
                   disabled
-                  className="input pl-10 cursor-not-allowed bg-slate-50 text-slate-400"
+                  className="input has-left-icon pl-11 cursor-not-allowed bg-slate-50 text-slate-400"
                 />
               </div>
               <p className="mt-1.5 text-[11px] text-slate-400">Email cannot be changed. Contact admin for email updates.</p>
@@ -116,7 +112,7 @@ export default function Settings() {
                   value={ROLE_UI_LABELS[profile?.role ?? ""] ?? profile?.role ?? "—"}
                   readOnly
                   disabled
-                  className="input pl-10 cursor-not-allowed bg-slate-50 text-slate-400"
+                  className="input has-left-icon pl-11 cursor-not-allowed bg-slate-50 text-slate-400"
                 />
               </div>
               <p className="mt-1.5 text-[11px] text-slate-400">Role is assigned by the system administrator.</p>

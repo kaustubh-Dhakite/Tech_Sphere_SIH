@@ -1,4 +1,4 @@
-export type Role = "complainant" | "officer" | "admin";
+export type Role = "admin" | "officer" | "institute" | "student" | "complainant";
 
 export type Status = "Submitted" | "Under Review" | "In Progress" | "Resolved" | "Escalated";
 
@@ -158,23 +158,35 @@ export const STATUSES: Status[] = ["Submitted", "Under Review", "In Progress", "
 export const PRIORITIES: Priority[] = ["Low", "Medium", "High"];
 
 export const ROLE_PERSONAS: Record<Role, Persona> = {
-  complainant: {
-    name: "Aarav Sharma",
-    title: "Student Complainant",
-    email: "aarav.demo@example.in",
-    initials: "AS",
+  admin: {
+    name: "Chief Administrator",
+    title: "AICTE Central Administrator",
+    email: "admin@aicte-india.org",
+    initials: "CA",
   },
   officer: {
     name: "Meera Krishnan",
-    title: "Desk Officer · Grievance Cell",
-    email: "grievance.desk@casebridge-demo.in",
+    title: "AICTE Bureau Officer",
+    email: "officer.grievance@aicte-india.org",
     initials: "MK",
   },
-  admin: {
-    name: "Rohan Iyer",
-    title: "System Administrator",
-    email: "admin@casebridge-demo.in",
-    initials: "RI",
+  institute: {
+    name: "Dr. K. S. Rao",
+    title: "Institute Representative · COEP",
+    email: "nodal@coep.ac.in",
+    initials: "KR",
+  },
+  student: {
+    name: "Aarav Sharma",
+    title: "Student Grievant",
+    email: "student@example.in",
+    initials: "AS",
+  },
+  complainant: {
+    name: "Aarav Sharma",
+    title: "Student Grievant",
+    email: "student@example.in",
+    initials: "AS",
   },
 };
 

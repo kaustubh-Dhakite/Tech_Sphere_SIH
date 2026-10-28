@@ -48,9 +48,11 @@ function greeting(): string {
 }
 
 const SUBTITLES: Record<string, string> = {
+  admin: "System-wide view of complaint flow, priorities and escalations across all bureaus and institutions.",
+  officer: "Central queue monitor for AICTE Grievance bureaus. Priority and overdue items surface first.",
+  institute: "Institution compliance monitor. Manage grievances lodged against your institution.",
+  student: "Track your submitted grievances and follow each stage of their review and resolution.",
   complainant: "Track your submissions and follow every stage of their review across bureaus.",
-  officer: "Queue monitor for the Grievance Cell desk. Priority and overdue items surface first.",
-  admin: "System-wide view of complaint flow, priorities and escalations across all bureaus and cells.",
 };
 
 export default function Dashboard() {
